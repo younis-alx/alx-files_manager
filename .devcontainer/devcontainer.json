@@ -1,0 +1,14 @@
+{
+  "name": "ALX reqs",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": { 
+		"vscode": {
+			"extensions": [
+				"ms-azuretools.vscode-docker",
+				"MichaelCurrin.auto-commit-msg"
+			]
+		}
+	}
+}
