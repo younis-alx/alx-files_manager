@@ -1,57 +1,36 @@
-import { ObjectID } from 'mongodb';
-import redisClient from './redis';
-import dbClient from './db';
+import { MongoClient } from 'mongodb';
 
-// retrieves authentication token from headers
-async function getAuthToken(request) {
-  const token = request.headers['X-token'];
-  return `auth_${token}`;
-}
+const HOST = process.env.DB_HOST || 'localhost';
+const PORT = process.env.DB_PORT || 27017;
+const DATABASE = process.env.DB_DATABASE || 'files_manager';
+const url = `mongodb://${HOST}:${PORT}`;
 
-// finds a user ID based on token passed to headers
-async function findUserIdByToken(request) {
-  const key = await getAuthToken(request);
-  const userId = await redisClient.get(key);
-  return userId || null;
-}
-
-// finds a user from db based on ID
-async function findUserById(userId) {
-  const userExistsArray = await dbClient.users.find(`ObjectId("${userId}")`).toArray();
-  return userExistsArray[0] || null;
-}
-
-async function getUserById(request) {
-//   const key = getAuthToken(request);
-  const userId = findUserIdByToken(request);
-  if (userId) {
-    const users = dbClient.db.collection('users');
-    const objectId = new ObjectID(userId);
-    const user = await users.findOne({ _id: objectId });
-    if (!user) {
-      return null;
-    }
-    return user;
+class DBClient {
+  constructor() {
+    this.client = new MongoClient(url, { useUnifiedTopology: true, useNewUrlParser: true });
+    this.client.connect().then(() => {
+      this.db = this.client.db(`${DATABASE}`);
+    }).catch((err) => {
+      console.log(err);
+    });
   }
-  return null;
-}
 
-async function getUser(request) {
-  const token = request.header('X-Token');
-  const key = `auth_${token}`;
-  const userId = await redisClient.get(key);
-  if (userId) {
-    const users = dbClient.db.collection('users');
-    const idObject = new ObjectID(userId);
-    const user = await users.findOne({ _id: idObject });
-    if (!user) {
-      return null;
-    }
-    return user;
+  isAlive() {
+    return this.client.isConnected();
   }
-  return null;
+
+  async nbUsers() {
+    const users = this.db.collection('users');
+    const usersNum = await users.countDocuments();
+    return usersNum;
+  }
+
+  async nbFiles() {
+    const files = this.db.collection('files');
+    const filesNum = await files.countDocuments();
+    return filesNum;
+  }
 }
 
-export {
-  findUserIdByToken, findUserById, getUserById, getUser,
-};
+const dbClient = new DBClient();
+module.exports = dbClient;
