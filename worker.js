@@ -1,3 +1,5 @@
+#!/usr/bin/node
+
 import Queue from 'bull';
 import imageThumbnail from 'image-thumbnail';
 import { promises as fs } from 'fs';
