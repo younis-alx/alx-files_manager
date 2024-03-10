@@ -84,7 +84,7 @@ class FilesController {
         try {
           await fs.mkdir(filePath);
         } catch (error) {
-        // pass. Error raised when file already exists
+          // pass. Error raised when file already exists
         }
         await fs.writeFile(fileName, buff, 'utf-8');
       } catch (error) {
