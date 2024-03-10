@@ -1,39 +1,57 @@
-#!/usr/bin/node
+import { ObjectID } from 'mongodb';
+import redisClient from './redis';
+import dbClient from './db';
 
-const { createClient } = require('redis');
-const { promisify } = require('util');
-
-class RedisClient {
-  constructor() {
-    this.client = createClient();
-    this.client.on('error', (err) => console.log(err));
-    this.connected = false;
-    this.client.on('connect', () => {
-      this.connected = true;
-    });
-  }
-
-  isAlive() {
-    return this.connected;
-  }
-
-  async get(key) {
-    const getAsync = promisify(this.client.get).bind(this.client);
-    const val = await getAsync(key);
-    return val;
-  }
-
-  async set(key, val, dur) {
-    const setAsync = promisify(this.client.set).bind(this.client);
-    await setAsync(key, val, 'EX', dur);
-  }
-
-  async del(key) {
-    const delAsync = promisify(this.client.del).bind(this.client);
-    await delAsync(key);
-  }
+// retrieves authentication token from headers
+async function getAuthToken(request) {
+  const token = request.headers['X-token'];
+  return `auth_${token}`;
 }
 
-const redisClient = new RedisClient();
+// finds a user ID based on token passed to headers
+async function findUserIdByToken(request) {
+  const key = await getAuthToken(request);
+  const userId = await redisClient.get(key);
+  return userId || null;
+}
 
-module.exports = redisClient;
+// finds a user from db based on ID
+async function findUserById(userId) {
+  const userExistsArray = await dbClient.users.find(`ObjectId("${userId}")`).toArray();
+  return userExistsArray[0] || null;
+}
+
+async function getUserById(request) {
+//   const key = getAuthToken(request);
+  const userId = findUserIdByToken(request);
+  if (userId) {
+    const users = dbClient.db.collection('users');
+    const objectId = new ObjectID(userId);
+    const user = await users.findOne({ _id: objectId });
+    if (!user) {
+      return null;
+    }
+    return user;
+  }
+  return null;
+}
+
+async function getUser(request) {
+  const token = request.header('X-Token');
+  const key = `auth_${token}`;
+  const userId = await redisClient.get(key);
+  if (userId) {
+    const users = dbClient.db.collection('users');
+    const idObject = new ObjectID(userId);
+    const user = await users.findOne({ _id: idObject });
+    if (!user) {
+      return null;
+    }
+    return user;
+  }
+  return null;
+}
+
+export {
+  findUserIdByToken, findUserById, getUserById, getUser,
+};
